@@ -4,15 +4,106 @@
 
 using namespace std;
 
+int n;
+vector<vector<int>> adj;
+vector<int> disc, low;
+vector<bool> visited;
+vector<int> stack_vec;
+int timer;
+vector<bool> in_odd_cycle_bcc;
+
+void dfs(int u, int parent) {
+    disc[u] = low[u] = ++timer;
+    stack_vec.push_back(u);
+    
+    for (int v : adj[u]) {
+        if (v == parent) continue;
+        
+        if (disc[v] == 0) {
+            dfs(v, u);
+            low[u] = min(low[u], low[v]);
+        } else {
+            low[u] = min(low[u], disc[v]);
+        }
+    }
+    
+    // If u is the root of a BCC
+    if (low[u] == disc[u]) {
+        vector<int> bcc;
+        int w;
+        do {
+            w = stack_vec.back();
+            stack_vec.pop_back();
+            bcc.push_back(w);
+        } while (w != u);
+        
+        // Check if this BCC has an odd cycle
+        if (bcc.size() >= 3) {
+            // Build subgraph for this BCC
+            vector<vector<int>> sub_adj(bcc.size());
+            vector<int> idx_map(n + 1, -1);
+            
+            for (int i = 0; i < bcc.size(); i++) {
+                idx_map[bcc[i]] = i;
+            }
+            
+            for (int i = 0; i < bcc.size(); i++) {
+                int u = bcc[i];
+                for (int v : adj[u]) {
+                    if (idx_map[v] != -1) {
+                        sub_adj[i].push_back(idx_map[v]);
+                    }
+                }
+            }
+            
+            // Check if subgraph is bipartite
+            vector<int> color(bcc.size(), -1);
+            bool is_bipartite = true;
+            
+            for (int i = 0; i < bcc.size() && is_bipartite; i++) {
+                if (color[i] == -1) {
+                    queue<int> q;
+                    q.push(i);
+                    color[i] = 0;
+                    
+                    while (!q.empty() && is_bipartite) {
+                        int curr = q.front();
+                        q.pop();
+                        
+                        for (int next : sub_adj[curr]) {
+                            if (color[next] == -1) {
+                                color[next] = 1 - color[curr];
+                                q.push(next);
+                            } else if (color[next] == color[curr]) {
+                                is_bipartite = false;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            
+            if (!is_bipartite) {
+                // This BCC has an odd cycle
+                for (int vertex : bcc) {
+                    in_odd_cycle_bcc[vertex] = true;
+                }
+            }
+        }
+    }
+}
+
 int main() {
     ios_base::sync_with_stdio(false);
     cin.tie(NULL);
     
-    int n, m;
+    int m;
     cin >> n >> m;
     
-    // Build adjacency list for the graph of safe pairs
-    vector<vector<int>> adj(n + 1);
+    adj.resize(n + 1);
+    disc.resize(n + 1, 0);
+    low.resize(n + 1, 0);
+    in_odd_cycle_bcc.resize(n + 1, false);
     
     // Read the m edges (pairs that have NOT seen each other slacking - safe pairs)
     for (int i = 0; i < m; i++) {
@@ -22,49 +113,20 @@ int main() {
         adj[y].push_back(x);
     }
     
-    vector<bool> visited(n + 1, false);
-    vector<int> color(n + 1, -1); // -1: uncolored, 0/1: colored
-    int answer = 0;
+    timer = 0;
     
+    // Find all Biconnected Components
     for (int i = 1; i <= n; i++) {
-        if (!visited[i]) {
-            queue<int> q;
-            q.push(i);
-            visited[i] = true;
-            color[i] = 0;
-            
-            vector<int> component_vertices;
-            bool is_bipartite = true;
-            
-            while (!q.empty()) {
-                int u = q.front();
-                q.pop();
-                component_vertices.push_back(u);
-                
-                // Check all neighbors in the safe graph
-                for (int v : adj[u]) {
-                    if (!visited[v]) {
-                        visited[v] = true;
-                        color[v] = 1 - color[u];
-                        q.push(v);
-                    } else if (color[v] == color[u]) {
-                        is_bipartite = false;
-                    }
-                }
-            }
-            
-            if (is_bipartite) {
-                // All vertices in bipartite components cannot be part of odd cycles
-                answer += component_vertices.size();
-            } else {
-                // In non-bipartite components, check if vertices have degree >= 2
-                // Vertices with degree < 2 cannot be part of cycles
-                for (int vertex : component_vertices) {
-                    if (adj[vertex].size() < 2) {
-                        answer++;
-                    }
-                }
-            }
+        if (disc[i] == 0) {
+            dfs(i, -1);
+        }
+    }
+    
+    // Count vertices that cannot be part of any odd cycle
+    int answer = 0;
+    for (int i = 1; i <= n; i++) {
+        if (!in_odd_cycle_bcc[i]) {
+            answer++;
         }
     }
     
