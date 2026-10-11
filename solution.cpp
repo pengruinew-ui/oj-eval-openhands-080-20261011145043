@@ -1,7 +1,6 @@
 #include <iostream>
 #include <vector>
 #include <queue>
-#include <functional>
 
 using namespace std;
 
@@ -82,60 +81,11 @@ int main() {
                 // Component is bipartite, no odd cycles
                 answer += component_vertices.size();
             } else {
-                // Component has odd cycles, check individual vertices
+                // Component has odd cycles
+                // A vertex can be invited if it has degree >= 2
                 for (int vertex : component_vertices) {
-                    // A vertex can be part of an odd cycle if:
-                    // 1. It has degree >= 2 (to be in a cycle)
-                    // 2. It's in a component with odd cycles
-                    
                     if (adj[vertex].size() < 2) {
                         answer++; // Cannot be in any cycle
-                    } else {
-                        // Check if this vertex is actually part of some cycle
-                        // Use DFS to find a cycle containing this vertex
-                        
-                        vector<int> parent(n + 1, -1);
-                        vector<bool> in_path(n + 1, false);
-                        bool found_cycle = false;
-                        
-                        function<void(int)> dfs_cycle = [&](int u) {
-                            in_path[u] = true;
-                            
-                            for (int v : adj[u]) {
-                                if (found_cycle) return;
-                                
-                                if (!in_path[v]) {
-                                    parent[v] = u;
-                                    dfs_cycle(v);
-                                } else if (parent[u] != v) {
-                                    // Found a cycle
-                                    found_cycle = true;
-                                    
-                                    // Check if vertex is in this cycle
-                                    int curr = u;
-                                    while (curr != -1 && curr != v) {
-                                        if (curr == vertex) {
-                                            return;
-                                        }
-                                        curr = parent[curr];
-                                    }
-                                    if (v == vertex) {
-                                        return;
-                                    }
-                                    
-                                    // If we get here, vertex is not in this cycle
-                                    found_cycle = false;
-                                }
-                            }
-                            
-                            in_path[u] = false;
-                        };
-                        
-                        dfs_cycle(vertex);
-                        
-                        if (!found_cycle) {
-                            answer++; // Vertex is not in any cycle
-                        }
                     }
                 }
             }
